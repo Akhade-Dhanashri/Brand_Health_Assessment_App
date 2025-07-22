@@ -69,7 +69,7 @@ function App() {
     alert(`✅ Thankyou  for submission!!\n📊 Your brand health score: ${percentScore}%\n📩  Detailed Report is sent to : ${form.email}`);
 
     try {
-      const response = await axios.post('http://localhost:8000/submit', form);
+      const response = await axios.post('https://brand-health-assessment-app-backend.onrender.com/submit', form);
       if (response.data.error) {
         alert("❌ Error: " + response.data.error);
       }

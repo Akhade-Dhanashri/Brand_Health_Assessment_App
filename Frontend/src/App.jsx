@@ -37,6 +37,9 @@ function App() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ name: '', email: '', company: '', responses: {} });
 
+  // ✅ Get backend URL from environment variable
+  const backendURL = import.meta.env.VITE_BACKEND_URL;
+
   const handleInputChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -66,10 +69,11 @@ function App() {
       return;
     }
 
-    alert(`✅ Thankyou  for submission!!\n📊 Your brand health score: ${percentScore}%\n📩  Detailed Report is sent to : ${form.email}`);
+    alert(`✅ Thank you for submission!!\n📊 Your brand health score: ${percentScore}%\n📩  Detailed Report is sent to: ${form.email}`);
 
     try {
-      const response = await axios.post('https://brand-health-assessment-app-backend.onrender.com/submit', form);
+      console.log("📡 Backend URL being used:", backendURL); // Debugging check
+      const response = await axios.post(`${backendURL}/submit`, form);
       if (response.data.error) {
         alert("❌ Error: " + response.data.error);
       }
@@ -81,7 +85,7 @@ function App() {
 
   return (
     <div className="container">
-      {/* HIDDEN TITLE */}
+      {/* Optional Title */}
       { <h1>Brand Health Assessment</h1> }
 
       {step === 1 && (

@@ -180,4 +180,3 @@ def send_report_via_email(to_email, filename):
 def generate_and_send_report(form_data):
     pdf = generate_pdf(form_data)
     send_report_via_email(form_data["email"], pdf)
-v

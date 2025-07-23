@@ -53,7 +53,7 @@ def generate_pdf(form_data, filename="Brand_Health_Report.pdf"):
     styles.add(ParagraphStyle(name="CenterTitle", alignment=TA_CENTER, fontSize=18, textColor=EX_BLUE, spaceAfter=20))
     styles.add(ParagraphStyle(name="SectionHeader", fontSize=14, textColor=EX_LIGHT_BLUE, spaceAfter=10))
 
-    # --- Logo ---
+    # --- Logo (Top Right, Proportional) ---
     logo_path = "Logo-exmatters.png"
     if os.path.exists(logo_path):
         try:
@@ -62,6 +62,7 @@ def generate_pdf(form_data, filename="Brand_Health_Report.pdf"):
             max_w = 150
             scale = max_w / orig_w
             new_w, new_h = max_w, orig_h * scale
+
             logo = Image(logo_path, width=new_w, height=new_h)
             logo.hAlign = 'RIGHT'
             story.append(logo)
@@ -71,7 +72,7 @@ def generate_pdf(form_data, filename="Brand_Health_Report.pdf"):
     # --- Title ---
     story.append(Paragraph("Brand Health Assessment Report", styles["CenterTitle"]))
 
-    # --- User Info ---
+    # --- Info Block ---
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     story.append(Paragraph(f"<b>Name:</b> {form_data['name']}", styles["Normal"]))
     story.append(Paragraph(f"<b>Email:</b> {form_data['email']}", styles["Normal"]))
@@ -110,7 +111,7 @@ def generate_pdf(form_data, filename="Brand_Health_Report.pdf"):
         ("TEXTCOLOR", (0, -2), (-1, -1), colors.white),
     ]))
     story.append(table)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 16))
 
     # --- Bar Chart ---
     drawing = Drawing(400, 200)
@@ -129,17 +130,22 @@ def generate_pdf(form_data, filename="Brand_Health_Report.pdf"):
 
     story.append(Paragraph("Category-wise Scores (Bar Graph)", styles["SectionHeader"]))
     story.append(drawing)
-    story.append(Spacer(2, 20))
+    story.append(Spacer(1, 20))
 
-    # --- Feedback ---
-    story.append(Paragraph("Feedback", styles["SectionHeader"]))
-    if total_score <= 5:
-        feedback_text = "You need to improve and differentiate your brand."
-    elif 6 <= total_score <= 10:
-        feedback_text = "There is some clarity, but more differentiation is required."
-    else:
-        feedback_text = "Great brand experience delivery! Focus on sustaining it across the customerjourney."
-    story.append(Paragraph(feedback_text, styles["Normal"]))
+    # --- Section-wise Feedback ---
+    story.append(Paragraph("Section-wise Feedback", styles["SectionHeader"]))
+
+    for section in section_scores:
+        score = section_scores[section]
+        if score <= 5:
+            feedback = f"{section}: Needs significant improvement. Focus on clarifying and strengthening your {section.lower()}."
+        elif 6 <= score <= 10:
+            feedback = f"{section}: Some clarity exists, but more refinement and differentiation is needed in your {section.lower()}."
+        else:
+            feedback = f"{section}: Performing well. Keep up the good work and continue optimizing your {section.lower()}."
+
+        story.append(Paragraph(feedback, styles["Normal"]))
+        story.append(Spacer(1, 6))
 
     doc.build(story)
     return filename
@@ -147,7 +153,7 @@ def generate_pdf(form_data, filename="Brand_Health_Report.pdf"):
 # --- Email Sender ---
 def send_report_via_email(to_email, filename):
     from_email = "dhanashri.a@exmatters.com"
-    app_password = "uund rklj hmdp ijcx"  # Replace with your App Password
+    app_password = "uund rklj hmdp ijcx"  # Replace with your app password
 
     msg = MIMEMultipart()
     msg["From"] = from_email
@@ -174,3 +180,4 @@ def send_report_via_email(to_email, filename):
 def generate_and_send_report(form_data):
     pdf = generate_pdf(form_data)
     send_report_via_email(form_data["email"], pdf)
+v

@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
+import PhoneInput from "react-phone-input-2";
+import "react-phone-input-2/lib/style.css";
 import "./App.css";
 
 const questions = [
@@ -35,7 +37,13 @@ const values = {
 
 function App() {
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ name: "", email: "", company: "", responses: {} });
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    company: "",
+    contact: "",
+    responses: {}
+  });
   const [score, setScore] = useState(0);
 
   const handleInputChange = (e) => {
@@ -63,6 +71,11 @@ function App() {
       return;
     }
 
+    if (!form.contact || form.contact.length < 6) {
+      alert("❗ Please enter a valid contact number.");
+      return;
+    }
+
     if (valuesList.length < 12) {
       alert("❗ Please answer all questions.");
       return;
@@ -82,6 +95,7 @@ function App() {
       {step === 1 && (
         <div className="form-card">
           <h2>Brand Health Assessment</h2>
+
           <label>Name</label>
           <input name="name" onChange={handleInputChange} placeholder="Your Name" />
 
@@ -90,6 +104,18 @@ function App() {
 
           <label>Company Name</label>
           <input name="company" onChange={handleInputChange} placeholder="Company Name" />
+
+          <label>Contact Number</label>
+          <PhoneInput
+            country={'in'}
+            value={form.contact}
+            onChange={(phone) => setForm({ ...form, contact: phone })}
+            inputProps={{
+              name: 'phone',
+              required: true,
+              autoFocus: false
+            }}
+          />
 
           <button
             className="next-btn"
@@ -132,10 +158,15 @@ function App() {
       )}
 
       {step === 3 && (
-        <div className="thank-you-card">
-          <h2>✅ Thank you for your submission!</h2>
-          <p>📊 Your brand health score is: <strong>{score}%</strong></p>
-          <p>📩 A detailed report has been sent to: <strong>{form.email}</strong></p>
+        <div className="thank-you-page">
+          <div className="thank-you-card fancy-border">
+            <h2>🎉 Thank You!</h2>
+            <p className="highlight">Your Brand Health Assessment has been submitted successfully.</p>
+            <p>✅ <strong>Score:</strong> <span className="score">{score}%</span></p>
+            <p>📩 A detailed PDF report has been emailed to: <strong>{form.email}</strong></p>
+            <p>📱 A copy has also been sent to your WhatsApp: <strong>{form.contact}</strong></p>
+            <p className="footer-note">We appreciate your time. Your insights help shape a stronger brand identity!</p>
+          </div>
         </div>
       )}
     </div>

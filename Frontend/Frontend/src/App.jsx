@@ -6,8 +6,8 @@ const questions = [
   "My company's product or service has a strong and clear point of differentiation from my competitors.",
   "My client and I can summarize my brand in one word/statement.",
   "The value of my product or services is relevant to the current market environment.",
-  "My employees are brand ambassadors of the company and can articulate how the offering differs from competitors.",
   "There is harmony/linkage between my company's vision, mission, values and strategy.",
+  "My employees are brand ambassadors of the company and can articulate how the offering differs from competitors.",
   "I regularly survey my customers on my brand and use their feedback as an input for strategy.",
   "My marketing material clearly communicates the company's brand.",
   "Management reinforces the company's brand in all staff meetings and employee interactions.",
@@ -17,39 +17,26 @@ const questions = [
   "My clients do not switch between my competitors and me and regularly refer others to my company."
 ];
 
-const labels = [
-  "Strongly Disagree",
-  "Disagree",
-  "Maybe",
-  "Agree",
-  "Strongly Agree"
-];
-
-const values = {
-  "Strongly Disagree": 1,
-  "Disagree": 2,
-  "Maybe": 3,
-  "Agree": 4,
-  "Strongly Agree": 5
-};
+const labels = ["Strongly Disagree", "Disagree", "Maybe", "Agree", "Strongly Agree"];
+const values = { "Strongly Disagree": 1, "Disagree": 2, "Maybe": 3, "Agree": 4, "Strongly Agree": 5 };
 
 function App() {
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ name: "", email: "", company: "", responses: {} });
   const [score, setScore] = useState(0);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    company: "",
+    contact: "",
+    responses: {}
+  });
 
   const handleInputChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleRadioChange = (question, val) => {
-    setForm({
-      ...form,
-      responses: {
-        ...form.responses,
-        [question]: val
-      }
-    });
+  const handleRadioChange = (q, val) => {
+    setForm({ ...form, responses: { ...form.responses, [q]: val } });
   };
 
   const validateEmail = (email) => {
@@ -59,18 +46,23 @@ function App() {
   };
 
   const handleSubmit = async () => {
-    const valuesList = Object.values(form.responses).map(Number);
-    const totalScore = valuesList.reduce((a, b) => a + b, 0);
-    const percent = Math.round((totalScore / 60) * 100);
+    const answers = Object.values(form.responses).map(Number);
+    const total = answers.reduce((a, b) => a + b, 0);
+    const percent = Math.round((total / 60) * 100);
     setScore(percent);
+
+    if (!form.name || !form.email || !form.company || !form.contact) {
+      alert("❗ Please fill out all fields including contact number.");
+      return;
+    }
 
     if (!validateEmail(form.email)) {
       alert("❌ Please use a valid *organization email* (not Gmail, Yahoo, etc).");
       return;
     }
 
-    if (valuesList.length < 12) {
-      alert("❗ Please answer all questions.");
+    if (answers.length < 12) {
+      alert("❗ Please answer all 12 questions.");
       return;
     }
 
@@ -79,7 +71,7 @@ function App() {
       setStep(3);
     } catch (err) {
       console.error(err);
-      alert("❌ Submission failed: Could not reach backend.");
+      alert("❌ Submission failed. Please try again later.");
     }
   };
 
@@ -88,6 +80,7 @@ function App() {
       {step === 1 && (
         <div className="form-card">
           <h2>Brand Health Assessment</h2>
+
           <label>Name</label>
           <input name="name" onChange={handleInputChange} placeholder="Your Name" />
 
@@ -97,11 +90,14 @@ function App() {
           <label>Company Name</label>
           <input name="company" onChange={handleInputChange} placeholder="Company Name" />
 
+          <label>Contact Number</label>
+          <input name="contact" onChange={handleInputChange} placeholder="+91XXXXXXXXXX" />
+
           <button
             className="next-btn"
             onClick={() => {
               if (!validateEmail(form.email)) {
-                alert("❌ Only organizational emails are accepted (not Gmail/Yahoo).");
+                alert("❌ Only organization emails are accepted.");
               } else {
                 setStep(2);
               }
@@ -138,10 +134,15 @@ function App() {
       )}
 
       {step === 3 && (
-        <div className="thank-you-card">
-          <h2>✅ Thank you for your submission!</h2>
-          <p>📊 Your brand health score is: <strong>{score}%</strong></p>
-          <p>📩 A detailed report has been sent to: <strong>{form.email}</strong></p>
+        <div className="thank-you-page">
+          <div className="thank-you-card fancy-border">
+            <h2>🎉 Thank You!</h2>
+            <p className="highlight">Your Brand Health Assessment has been submitted.</p>
+            <p>✅ <strong>Your Brand Health Score is :</strong> <span className="score">{score}%</span></p>
+            <p>📩 A detailed PDF report has been sent to: <strong>{form.email}</strong></p>
+            <p>📱 Also sent to WhatsApp: <strong>{form.contact}</strong></p>
+            <p className="footer-note">We appreciate your time. Stay brand-strong!</p>
+          </div>
         </div>
       )}
     </div>

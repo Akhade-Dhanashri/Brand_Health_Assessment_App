@@ -129,7 +129,7 @@ def generate_pdf(form_data, filename="Brand_Health_Report.pdf"):
 
     story.append(Paragraph("Category-wise Scores (Bar Graph)", styles["SectionHeader"]))
     story.append(drawing)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(2, 20))
 
     # --- Feedback ---
     story.append(Paragraph("Feedback", styles["SectionHeader"]))
@@ -138,8 +138,7 @@ def generate_pdf(form_data, filename="Brand_Health_Report.pdf"):
     elif 6 <= total_score <= 10:
         feedback_text = "There is some clarity, but more differentiation is required."
     else:
-        feedback_text = "Your brand is progressing well. Here's a suggestion for improvement."
-
+        feedback_text = "Great brand experience delivery! Focus on sustaining it across the customerjourney."
     story.append(Paragraph(feedback_text, styles["Normal"]))
 
     doc.build(story)

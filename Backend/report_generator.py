@@ -1,203 +1,152 @@
 import os
-import datetime
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
-from email.mime.text import MIMEText
+import tempfile
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
 from reportlab.lib import colors
-from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-)
-from reportlab.graphics.shapes import Drawing, String
 from reportlab.graphics.charts.barcharts import VerticalBarChart
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER
-from PIL import Image as PILImage
+from reportlab.graphics.shapes import Drawing, String
+from reportlab.graphics import renderPDF
+from datetime import datetime
+from email.message import EmailMessage
+import smtplib
 from twilio.rest import Client
 
-# --- Exmatters Colors ---
-EX_BLUE = colors.HexColor("#003366")
-EX_LIGHT_BLUE = colors.HexColor("#0072CE")
-EX_TEAL = colors.HexColor("#00B2A9")
-EX_GRAY = colors.HexColor("#F2F2F2")
 
-# --- Section Questions ---
-question_sections = {
-    "Brand Strategy": [
-        "My company's product or service has a strong and clear point of differentiation from my competitors.",
-        "My client and I can summarize my brand in one word/statement.",
-        "The value of my product or services is relevant to the current market environment."
-    ],
-    "Brand Alignment": [
-        "There is harmony/linkage between my company's vision, mission, values and strategy.",
-        "My employees are brand ambassadors of the company and can articulate how the offering differs from competitors.",
-        "I regularly survey my customers on my brand and use their feedback as an input for strategy."
-    ],
-    "Brand Communication": [
-        "My marketing material clearly communicates the company's brand.",
-        "Management reinforces the company's brand in all staff meetings and employee interactions.",
-        "All departments follow the company's brand guidelines document and prescribed templates."
-    ],
-    "Brand Execution": [
-        "Clients get the same positive brand experience no matter which department or employee they interact with.",
-        "My company has a robust mechanism to deliver a brand experience at every stage of the customer journey (attract, engage, and retain).",
-        "My clients do not switch between my competitors and me and regularly refer others to my company."
-    ]
-}
-
-# --- PDF Generator ---
-def generate_pdf(form_data, filename="Brand_Health_Report.pdf"):
-    doc = SimpleDocTemplate(filename, pagesize=A4)
-    story = []
+def generate_report(name, email, company, contact, responses):
+    # Paths and PDF setup
+    filename = f"Brand_Health_Report_{name.replace(' ', '_')}.pdf"
+    filepath = os.path.join(tempfile.gettempdir(), filename)
+    doc = SimpleDocTemplate(filepath, pagesize=A4)
+    elements = []
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="CenterTitle", alignment=TA_CENTER, fontSize=18, textColor=EX_BLUE, spaceAfter=20))
-    styles.add(ParagraphStyle(name="SectionHeader", fontSize=14, textColor=EX_LIGHT_BLUE, spaceAfter=10))
 
-    # --- Logo ---
+    # Logo
     logo_path = "Logo-exmatters.png"
     if os.path.exists(logo_path):
-        try:
-            pil_logo = PILImage.open(logo_path)
-            orig_w, orig_h = pil_logo.size
-            max_w = 150
-            scale = max_w / orig_w
-            new_w, new_h = max_w, orig_h * scale
+        logo = Image(logo_path, width=120, height=40)
+        logo.hAlign = 'RIGHT'
+        elements.append(logo)
 
-            logo = Image(logo_path, width=new_w, height=new_h)
-            logo.hAlign = 'RIGHT'
-            story.append(logo)
-        except Exception as e:
-            print("⚠️ Logo error:", e)
+    # Title
+    elements.append(Paragraph("<b>Brand Health Assessment Report</b>", styles['Title']))
+    elements.append(Spacer(1, 12))
 
-    # --- Title ---
-    story.append(Paragraph("Brand Health Assessment Report", styles["CenterTitle"]))
+    # Info
+    elements.append(Paragraph(f"<b>Name:</b> {name}", styles['Normal']))
+    elements.append(Paragraph(f"<b>Company:</b> {company}", styles['Normal']))
+    elements.append(Paragraph(f"<b>Email:</b> {email}", styles['Normal']))
+    elements.append(Paragraph(f"<b>Contact:</b> {contact}", styles['Normal']))
+    elements.append(Spacer(1, 12))
 
-    # --- Info Block ---
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
-    story.append(Paragraph(f"<b>Name:</b> {form_data['name']}", styles["Normal"]))
-    story.append(Paragraph(f"<b>Email:</b> {form_data['email']}", styles["Normal"]))
-    story.append(Paragraph(f"<b>Company:</b> {form_data['company']}", styles["Normal"]))
-    story.append(Paragraph(f"<b>Contact:</b> {form_data['contact']}", styles["Normal"]))
-    story.append(Paragraph(f"<b>Date:</b> {today}", styles["Normal"]))
-    story.append(Spacer(1, 12))
+    # Sections
+    sections = {
+        "Brand Strategy": list(responses.values())[:3],
+        "Brand Alignment": list(responses.values())[3:6],
+        "Brand Communication": list(responses.values())[6:9],
+        "Brand Execution": list(responses.values())[9:12]
+    }
 
-    # --- Score Calculation ---
-    section_scores = {}
-    total_score = 0
+    section_scores = {sec: sum(scores) for sec, scores in sections.items()}
+    section_avgs = {sec: round(sum(scores)/len(scores), 2) for sec, scores in sections.items()}
+    total_score = sum(section_scores.values())
+    percent_score = round((total_score / 60) * 100)
 
-    for section, questions in question_sections.items():
-        score = sum(form_data["responses"].get(q, 0) for q in questions)
-        section_scores[section] = score
-        total_score += score
+    # Summary Table
+    data = [["Section", "Score (out of 15)", "Avg (out of 5)"]]
+    for sec in sections:
+        data.append([sec, section_scores[sec], section_avgs[sec]])
+    data.append(["Total", f"{total_score} / 60", f"{percent_score}%"])
 
-    percentage = round((total_score / 60) * 100)
-
-    # --- Summary Table ---
-    story.append(Paragraph("Brand Health Summary", styles["SectionHeader"]))
-    summary_data = [["Section", "Score (out of 15)"]]
-    for section, score in section_scores.items():
-        summary_data.append([section, str(score)])
-    summary_data.append(["Overall Score", f"{total_score} / 60"])
-    summary_data.append(["Brand Health %", f"{percentage}%"])
-
-    table = Table(summary_data, colWidths=[300, 200])
+    table = Table(data, hAlign='LEFT')
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), EX_BLUE),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("BACKGROUND", (0, 1), (-1, -2), EX_GRAY),
-        ("BACKGROUND", (0, -2), (-1, -1), EX_TEAL),
-        ("TEXTCOLOR", (0, -2), (-1, -1), colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0076A8')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER')
     ]))
-    story.append(table)
-    story.append(Spacer(1, 20))
+    elements.append(table)
+    elements.append(Spacer(1, 20))
 
-    # --- Bar Chart with Rotated X-Axis Labels ---
-    drawing = Drawing(450, 240)
-    bar = VerticalBarChart()
-    bar.x = 60
-    bar.y = 50
-    bar.height = 150
-    bar.width = 330
-    bar.data = [[section_scores[k] for k in section_scores]]
-    bar.categoryAxis.categoryNames = list(section_scores.keys())
-    bar.categoryAxis.labels.angle = 45
-    bar.categoryAxis.labels.dy = -15
-    bar.categoryAxis.labels.fontSize = 8
-    bar.bars[0].fillColor = EX_LIGHT_BLUE
-    bar.valueAxis.valueMin = 0
-    bar.valueAxis.valueMax = 15
-    bar.valueAxis.valueStep = 5
-    drawing.add(bar)
-
-    story.append(Paragraph("Category-wise Scores (Bar Graph)", styles["SectionHeader"]))
-    story.append(drawing)
-    story.append(Spacer(1, 20))
-
-    # --- Section-wise Feedback ---
-    story.append(Paragraph("Section-wise Feedback", styles["SectionHeader"]))
-    for section, score in section_scores.items():
+    # Feedback function
+    def feedback(score):
         if score <= 5:
-            feedback = f"{section}: Needs significant improvement. Focus on clarifying and strengthening your {section.lower()}."
+            return "Needs significant improvement in this area."
         elif score <= 10:
-            feedback = f"{section}: Some clarity exists, but more refinement and differentiation is needed in your {section.lower()}."
+            return "Some clarity exists, but more differentiation and alignment are needed."
         else:
-            feedback = f"{section}: Performing well. Keep up the good work and continue optimizing your {section.lower()}."
-        story.append(Paragraph(feedback, styles["Normal"]))
-        story.append(Spacer(1, 6))
+            return "Performing well in this area."
 
-    doc.build(story)
-    return filename
+    # Feedback Section
+    elements.append(Paragraph("<b>Section-wise Feedback:</b>", styles['Heading2']))
+    for sec, score in section_scores.items():
+        fb = feedback(score)
+        elements.append(Paragraph(f"<b>{sec}:</b> {fb}", styles['Normal']))
+        elements.append(Spacer(1, 6))
+    elements.append(Spacer(1, 16))
 
-# --- Email Sender ---
-def send_report_via_email(to_email, filename):
-    from_email = "dhanashri.a@exmatters.com"
-    app_password = "uund rklj hmdp ijcx"  # replace with secure App Password
+    # Bar chart using reportlab graphics
+    drawing = Drawing(400, 200)
+    chart = VerticalBarChart()
+    chart.x = 50
+    chart.y = 30
+    chart.height = 125
+    chart.width = 300
+    chart.data = [list(section_scores.values())]
+    chart.categoryAxis.categoryNames = list(section_scores.keys())
+    chart.barWidth = 15
+    chart.fillColor = colors.HexColor("#0076A8")
+    chart.bars[0].fillColor = colors.HexColor("#0076A8")
+    chart.valueAxis.valueMin = 0
+    chart.valueAxis.valueMax = 15
+    chart.categoryAxis.labels.angle = 20
+    chart.categoryAxis.labels.dy = -10
 
-    msg = MIMEMultipart()
-    msg["From"] = from_email
+    drawing.add(chart)
+    drawing.add(String(150, 180, 'Brand Health Score by Section', fontSize=12, fillColor=colors.black))
+    elements.append(drawing)
+
+    # Build PDF
+    doc.build(elements)
+
+    # Send email to both recipient and internal address
+    send_email(email, filename, filepath)
+    send_email("info@exmatters.com", filename, filepath)
+
+    # Send WhatsApp
+    send_whatsapp(contact, filename)
+
+    return filename, filepath
+
+
+def send_email(to_email, filename, filepath):
+    email_sender = "info@exmatters.com"
+    email_password = "kqjn unjt qgvy cef"
+
+    msg = EmailMessage()
+    msg["Subject"] = "📄 Your Brand Health Assessment Report"
+    msg["From"] = email_sender
     msg["To"] = to_email
-    msg["Subject"] = "Your Brand Health Assessment Report"
+    msg.set_content("Hello,\n\nPlease find attached your Brand Health Assessment Report PDF.\n\nThank you.\n- Exmatters Team")
 
-    body = "Dear User,\n\nPlease find attached your Brand Health Assessment Report.\n\nBest regards,\nExmatters Team"
-    msg.attach(MIMEText(body, "plain"))
+    with open(filepath, "rb") as f:
+        msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename=filename)
 
-    with open(filename, "rb") as f:
-        part = MIMEApplication(f.read(), Name=os.path.basename(filename))
-        part['Content-Disposition'] = f'attachment; filename="{filename}"'
-        msg.attach(part)
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        smtp.login(email_sender, email_password)
+        smtp.send_message(msg)
 
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(from_email, app_password)
-            server.send_message(msg)
-        print(f"✅ Email sent to {to_email}")
-    except Exception as e:
-        print(f"❌ Email send failed: {e}")
 
-# --- WhatsApp Sender ---
-def send_report_to_whatsapp(to_number, media_url):
-    account_sid = "your_twilio_sid"
-    auth_token = "your_twilio_auth_token"
+def send_whatsapp(phone_number, filename):
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_whatsapp = os.getenv("TWILIO_WHATSAPP_NUMBER")
+
     client = Client(account_sid, auth_token)
 
-    try:
-        message = client.messages.create(
-            from_="whatsapp:7517364815",
-            to=f"whatsapp:{to_number}",
-            body="📄 Here is your Brand Health Report from Exmatters!",
-            media_url=[media_url]
-        )
-        print(f"✅ WhatsApp sent to {to_number}")
-    except Exception as e:
-        print(f"❌ WhatsApp send failed: {e}")
-
-# --- Final Handler ---
-def generate_and_send_report(form_data, public_pdf_url):
-    pdf = generate_pdf(form_data)
-    send_report_via_email(form_data["email"], pdf)
-    send_report_via_email("dhanashri.a@exmatters.com", pdf)
-    send_report_to_whatsapp(form_data["contact"], public_pdf_url)
+    client.messages.create(
+        from_=f"whatsapp:{from_whatsapp}",
+        to=f"whatsapp:{phone_number}",
+        body="Hi! 👋 This is your Brand Health Report from Exmatters. Please check your email for the attached PDF."
+    )

@@ -1,3 +1,30 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+<<<<<<< HEAD
+=======
+
+body {
+  background-color: #f8fafc;
+  min-height: 100vh;
+  font-family: sans-serif;
+}
+
+input[type="radio"] {
+  accent-color: #2563eb;
+}
+
+.app-container {
+  max-width: 800px;
+  margin: auto;
+  padding: 20px;
+}
+
+.question-block {
+  margin-bottom: 20px;
+}
+
+.options label {
+  margin-right: 20px;
+}
+>>>>>>> 603d2109acaa10edc3700f9a45fa447af1b9b05f
